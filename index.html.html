@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mold Asset Database</title>
+<style>
+:root{--blue:#173f67;--blue2:#24679d;--light:#eef5fa;--green:#dff1df;--yellow:#fff0c9;--red:#f8d5d5;--purple:#eee3f8;--gray:#f4f6f8;--border:#c8d1da}
+*{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#edf1f4;color:#18212a}
+header{background:linear-gradient(120deg,#153a60,#24679d);color:#fff;padding:20px 26px}
+header h1{margin:0 0 5px;font-size:26px} header p{margin:0;opacity:.9}
+.wrap{max-width:1700px;margin:auto;padding:18px}.card{background:#fff;border:1px solid #d9e0e6;border-radius:10px;padding:16px;margin-bottom:16px;box-shadow:0 2px 8px #0000000c}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.toolbar input,.toolbar select,.form-grid input,.form-grid select,.form-grid textarea{padding:9px;border:1px solid #b9c5cf;border-radius:6px;background:white}
+button{border:0;border-radius:6px;padding:9px 14px;background:var(--blue2);color:#fff;font-weight:700;cursor:pointer}
+button.secondary{background:#586775}button.green{background:#2d7c4c}button.red{background:#9b3131}button.orange{background:#a76420}
+.summary{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:10px;margin-bottom:16px}.stat{background:#fff;border:1px solid var(--border);border-radius:9px;padding:12px}.stat b{display:block;font-size:22px;color:var(--blue)}
+.table-wrap{overflow:auto;max-height:650px;border:1px solid var(--border);border-radius:8px}
+table{border-collapse:collapse;width:100%;min-width:1550px;font-size:13px}th{position:sticky;top:0;background:#184d78;color:#fff;z-index:2;padding:10px;border-right:1px solid #6e8aa2;white-space:nowrap}
+td{padding:8px;border-right:1px solid #d5dde4;border-bottom:1px solid #d5dde4;vertical-align:middle}tbody tr:nth-child(even){background:#f8fafb}
+.loc{font-weight:700}.status{padding:5px 8px;border-radius:12px;font-size:11px;font-weight:700;display:inline-block}.available{background:#dcefe2;color:#205f37}.transit{background:#fff0c7;color:#7d5200}.repair{background:#f5d9d9;color:#8b2626}.maintenance{background:#eee0f7;color:#653487}.production{background:#d9eaf8;color:#20567f}
+.qr{width:66px;height:66px;display:grid;grid-template-columns:repeat(9,1fr);background:#fff;border:4px solid #fff;box-shadow:0 0 0 1px #333}.qr i{display:block}.qr .b{background:#111}
+.actions{display:flex;gap:5px;flex-wrap:wrap}.actions button{font-size:11px;padding:6px 8px}
+.modal{display:none;position:fixed;inset:0;background:#0009;z-index:20;align-items:center;justify-content:center;padding:15px}.modal.open{display:flex}
+.tablet{background:#15191d;padding:16px;border-radius:26px;box-shadow:0 15px 50px #0008;width:min(720px,96vw)}.tablet-screen{background:#f7fafc;border-radius:15px;min-height:560px;max-height:86vh;overflow:auto;padding:18px}
+.tablet-top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ccd6de;padding-bottom:10px;margin-bottom:14px}.tablet-top h2{margin:0}.close{background:#555}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.form-grid label{font-size:12px;font-weight:bold;display:flex;flex-direction:column;gap:5px}.full{grid-column:1/-1}.form-grid textarea{min-height:80px;resize:vertical}
+.notice{padding:10px;border-radius:6px;background:#e8f1f8;margin:10px 0}.arrival{background:#fff2c8;border:1px solid #d7b04e}
+.history{margin-top:15px;border-top:1px solid #ccd6de;padding-top:10px}.history-item{padding:9px;border-left:4px solid #2d6c9f;background:#fff;margin:7px 0;border-radius:3px}.small{font-size:11px;color:#63717c}
+.attachment{display:inline-block;background:#e9eef2;border-radius:4px;padding:4px 7px;margin:3px;font-size:11px}
+.tabs{display:flex;gap:7px;margin-bottom:12px}.tabs button{background:#667786}.tabs button.active{background:#174e78}
+.hidden{display:none!important}
+@media(max-width:800px){.summary{grid-template-columns:1fr 1fr}.form-grid{grid-template-columns:1fr}.full{grid-column:auto}.wrap{padding:8px}header{padding:15px}}
+</style>
+</head>
+<body>
+<header>
+<h1>Mold Asset Database</h1>
+<p>QR-based mold location tracking • Repair • Preventive maintenance • Production movement history</p>
+</header>
+<div class="wrap">
+<div class="summary" id="summary"></div>
+
+<div class="card">
+  <div class="toolbar">
+    <input id="search" placeholder="Search asset, mold, description..." oninput="renderTable()">
+    <select id="locationFilter" onchange="renderTable()"><option value="">All Locations</option></select>
+    <select id="statusFilter" onchange="renderTable()">
+      <option value="">All Statuses</option><option>Available</option><option>In Transit</option><option>Production</option><option>Maintenance</option><option>Repair</option>
+    </select>
+    <button onclick="openScanChooser()">Scan QR / Tablet Demo</button>
+    <button class="green" onclick="openAddMold()">+ Add Mold</button>
+    <button class="secondary" onclick="exportCSV()">Export CSV</button>
+    <button class="red" onclick="resetDemo()">Reset Demo Data</button>
+  </div>
+</div>
+
+<div class="card">
+<h2 style="margin-top:0">Mold Database</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Mold Number</th><th>Description</th><th>Drawing No.</th><th>Cavities</th><th>Location</th><th>Status</th><th>Destination</th><th>Scope</th><th>Mold Maintenance</th><th>Mold Repair</th><th>Last Scan</th><th>QR Code</th><th>Actions</th>
+</tr></thead><tbody id="moldRows"></tbody>
+</table></div>
+</div>
+</div>
+
+<div class="modal" id="scanModal">
+<div class="tablet"><div class="tablet-screen">
+<div class="tablet-top"><div><div class="small">MOLD TRACKING TABLET</div><h2 id="tabletTitle">Scan Mold</h2></div><button class="close" onclick="closeModal('scanModal')">Close</button></div>
+<div id="tabletBody"></div>
+</div></div>
+</div>
+
+<div class="modal" id="recordModal">
+<div class="tablet"><div class="tablet-screen">
+<div class="tablet-top"><div><div class="small" id="recordTypeLabel">MOLD RECORD</div><h2 id="recordTitle"></h2></div><button class="close" onclick="closeModal('recordModal')">Close</button></div>
+<div id="recordBody"></div>
+</div></div>
+</div>
+
+<div class="modal" id="addModal">
+<div class="tablet"><div class="tablet-screen">
+<div class="tablet-top"><h2>Add Mold</h2><button class="close" onclick="closeModal('addModal')">Close</button></div>
+<div class="form-grid">
+<label>Mold Number<input id="aMold"></label>
+<label class="full">Description<input id="aDesc"></label><label>Drawing No.<input id="aDrawing"></label><label>Cavities<input id="aCav"></label>
+<label>Location<select id="aLoc"></select></label><label>Scope<input id="aScope"></label>
+
+</div><br><button class="green" onclick="saveNewMold()">Save Mold</button>
+</div></div>
+</div>
+
+<script>
+const LOCATIONS=["New Albany, OH, USA","Addison, IL, USA","Bartlett 2, IL, USA","Brampton, ON, Canada","Jeff City, MO, USA","FUMO / Mold Shop"];
+const STORAGE="moldDatabaseDemo_v1";
+
+const starter=[
+{id:1,asset:"EBM_AX_1252",mold:"17459-N2",description:"1.8oz Round (Tresemme)",drawing:"UNI-2228-1",cavities:"12",location:"Bartlett 2, IL, USA",status:"Available",destination:"",scope:"6X70, Tri-layer",notes:"",maintenance:[],repairs:[],history:[]},
+{id:2,asset:"EBM_AX_1501",mold:"44706",description:"16oz Cooktop",drawing:"PBB-3590-0",cavities:"",location:"Addison, IL, USA",status:"Available",destination:"",scope:"",notes:"",maintenance:[],repairs:[],history:[]},
+{id:3,asset:"EBM_AX_1856",mold:"45433M",description:"40oz Makeover (Production)",drawing:"SUA-4227-0",cavities:"8",location:"Addison, IL, USA",status:"Production",destination:"",scope:"",notes:"",maintenance:[],repairs:[],history:[]},
+{id:4,asset:"EBM_AX_1852",mold:"45434M",description:"32oz/30oz Suave Lotion #1",drawing:"SUA-4218-3",cavities:"6",location:"Bartlett 2, IL, USA",status:"Available",destination:"",scope:"",notes:"",maintenance:[],repairs:[],history:[]},
+{id:5,asset:"EBM_AX_1854",mold:"20354-RV0",description:"28oz Highway Pro Pump",drawing:"SUA-4262-0",cavities:"8",location:"Bartlett 2, IL, USA",status:"Available",destination:"",scope:"",notes:"",maintenance:[],repairs:[],history:[]},
+{id:6,asset:"To Generate",mold:"15766-N2",description:"16oz Dish Soap Round #3",drawing:"MRS-1384-3",cavities:"8",location:"New Albany, OH, USA",status:"Available",destination:"",scope:"4x100, Mono",notes:"File 8 P20",maintenance:[],repairs:[],history:[]},
+{id:7,asset:"EBM_AX_1500",mold:"44705",description:"12oz Cooktop",drawing:"PBB-3589-0",cavities:"",location:"Addison, IL, USA",status:"Available",destination:"",scope:"",notes:"",maintenance:[],repairs:[],history:[]},
+{id:8,asset:"To Generate",mold:"17302-N",description:"16.5oz Tresemme",drawing:"TBV",cavities:"8",location:"Addison, IL, USA",status:"Available",destination:"",scope:"4x100, Tri-Layer",notes:"",maintenance:[],repairs:[],history:[]},
+{id:9,asset:"To Generate",mold:"12-40058-3",description:"16oz White Holloway House",drawing:"TBV",cavities:"TBV",location:"Addison, IL, USA",status:"Available",destination:"",scope:"Mono",notes:"16oz Convex Oblong, 40058-3 (Engraving)",maintenance:[],repairs:[],history:[]},
+{id:10,asset:"To Generate",mold:"X-10595-3",description:"33.8oz/1L Nexxus",drawing:"UNI-2115-1",cavities:"8",location:"Addison, IL, USA",status:"Available",destination:"",scope:"4x100, Tri-Layer",notes:"Check if X-12935-7 / File 8 P22",maintenance:[],repairs:[],history:[]},
+{id:11,asset:"To Generate",mold:"12699.1",description:"32oz Round Handle",drawing:"MRS-1417-4",cavities:"6",location:"Addison, IL, USA",status:"Available",destination:"",scope:"3x125, Mono",notes:"",maintenance:[],repairs:[],history:[]},
+{id:12,asset:"To Generate",mold:"16640-N",description:"3oz Boston Round",drawing:"UNI-1918-1",cavities:"12",location:"Addison, IL, USA",status:"Available",destination:"",scope:"6X70, Mono",notes:"",maintenance:[],repairs:[],history:[]}
+];
+
+let molds=JSON.parse(localStorage.getItem(STORAGE)||"null")||structuredClone(starter);
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const now=()=>new Date().toLocaleString();
+function save(){localStorage.setItem(STORAGE,JSON.stringify(molds));renderAll()}
+function getMold(id){return molds.find(m=>m.id===Number(id))}
+function log(m,action,details,user="Tablet User"){m.history.unshift({date:now(),action,details,user})}
+function statusClass(s){return s==="In Transit"?"transit":s==="Repair"?"repair":s==="Maintenance"?"maintenance":s==="Production"?"production":"available"}
+
+function fakeQR(seed){
+ let n=0; for(const c of seed)n=(n*31+c.charCodeAt(0))>>>0;
+ let cells="";
+ for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+   const finder=(r<3&&c<3)||(r<3&&c>5)||(r>5&&c<3);
+   const on=finder||(((n>>( (r+c)%24))&1)^((r*c+c)%3===0));
+   cells+=`<i class="${on?"b":""}"></i>`;
+ }
+ return `<div class="qr" title="Demo QR linked to this mold">${cells}</div>`;
+}
+
+function renderAll(){
+ populateLocations(); renderTable(); renderSummary();
+}
+function populateLocations(){
+ const f=document.getElementById("locationFilter"), current=f.value;
+ f.innerHTML='<option value="">All Locations</option>'+LOCATIONS.map(x=>`<option>${esc(x)}</option>`).join("")+'<option>In Transit</option>';
+ f.value=current;
+ const a=document.getElementById("aLoc");
+ if(a)a.innerHTML=LOCATIONS.map(x=>`<option>${esc(x)}</option>`).join("");
+}
+function renderSummary(){
+ const transit=molds.filter(m=>m.status==="In Transit").length;
+ const rep=molds.filter(m=>m.status==="Repair").length;
+ const maint=molds.filter(m=>m.status==="Maintenance").length;
+ const prod=molds.filter(m=>m.status==="Production").length;
+ document.getElementById("summary").innerHTML=
+ `<div class="stat"><span>Total Molds</span><b>${molds.length}</b></div>
+ <div class="stat"><span>In Transit</span><b>${transit}</b></div>
+ <div class="stat"><span>In Repair</span><b>${rep}</b></div>
+ <div class="stat"><span>Maintenance</span><b>${maint}</b></div>
+ <div class="stat"><span>Production</span><b>${prod}</b></div>`;
+}
+function renderTable(){
+ const q=document.getElementById("search").value.toLowerCase(), lf=document.getElementById("locationFilter").value, sf=document.getElementById("statusFilter").value;
+ const list=molds.filter(m=>{
+  const blob=[m.mold,m.description,m.drawing,m.location,m.scope,m.destination].join(" ").toLowerCase();
+  return (!q||blob.includes(q))&&(!lf||(lf==="In Transit"?m.status==="In Transit":m.location===lf))&&(!sf||m.status===sf);
+ });
+ document.getElementById("moldRows").innerHTML=list.map(m=>`<tr>
+ <td><b>${esc(m.mold)}</b></td><td>${esc(m.description)}</td><td>${esc(m.drawing)}</td><td>${esc(m.cavities)}</td>
+ <td class="loc">${esc(m.location)}</td><td><span class="status ${statusClass(m.status)}">${esc(m.status)}</span></td>
+ <td>${esc(m.destination||"")}</td><td>${esc(m.scope)}</td>
+ <td>${m.maintenance.length?`<button onclick="openRecords(${m.id},'maintenance')">${m.maintenance.length} record(s)</button>`:"—"}</td>
+ <td>${m.repairs.length?`<button onclick="openRecords(${m.id},'repair')">${m.repairs.length} record(s)</button>`:"—"}</td>
+ <td>${esc(m.lastScan||"—")}</td><td>${fakeQR(m.mold)}</td>
+ <td><div class="actions"><button onclick="scanMold(${m.id})">Scan</button><button class="secondary" onclick="openHistory(${m.id})">History</button><button class="orange" onclick="openService(${m.id},'maintenance')">Maintenance</button><button class="red" onclick="openService(${m.id},'repair')">Repair</button></div></td>
+ </tr>`).join("");
+}
+
+function openScanChooser(){
+ document.getElementById("tabletTitle").textContent="Scan QR Code";
+ document.getElementById("tabletBody").innerHTML=`<div class="notice">For this browser demo, select a mold below. On the real tablet, scanning the QR would open this same mold screen automatically.</div>
+ <div class="form-grid"><label class="full">Choose mold<select id="scanChoose">${molds.map(m=>`<option value="${m.id}">${esc(m.mold)} — ${esc(m.description)}</option>`).join("")}</select></label></div><br>
+ <button onclick="scanMold(Number(document.getElementById('scanChoose').value))">Open Scanned Mold</button>`;
+ openModal("scanModal");
+}
+function scanMold(id){
+ const m=getMold(id); if(!m)return;
+ m.lastScan=now(); localStorage.setItem(STORAGE,JSON.stringify(molds));
+ document.getElementById("tabletTitle").textContent=`Mold ${m.mold}`;
+ let arrival="";
+ if(m.status==="In Transit"){
+  arrival=`<div class="notice arrival"><b>IN TRANSIT</b><br>Expected destination: <b>${esc(m.destination)}</b><br><br><button class="green" onclick="receiveMold(${m.id})">Receive Mold at Destination</button></div>`;
+ }
+ document.getElementById("tabletBody").innerHTML=`
+ ${arrival}
+ <div class="notice"><b>${esc(m.description)}</b><br>Current location: <b>${esc(m.location)}</b> | Status: <b>${esc(m.status)}</b></div>
+ <div class="form-grid">
+ <label>Tablet / Scan Location<select id="scanLocation">${LOCATIONS.map(x=>`<option ${x===m.location?"selected":""}>${esc(x)}</option>`).join("")}</select></label>
+ <label>Action<select id="scanAction" onchange="scanActionChanged(${m.id})">
+ <option value="">Select action...</option><option value="departure">Mold Departure</option><option value="arrival">Mold Arrival / Receive</option><option value="production">Heading to Machine for Production</option><option value="maintenance">Mold Maintenance</option><option value="repair">Mold Repair</option>
+ </select></label>
+ <label id="destinationLabel" class="hidden">Destination<select id="scanDestination">${LOCATIONS.filter(x=>x!=="FUMO / Mold Shop").map(x=>`<option>${esc(x)}</option>`).join("")}</select></label>
+ <label id="machineLabel" class="hidden">Machine<input id="machine" placeholder="e.g. B6, EBM2"></label>
+ <label class="full">Scan Notes<textarea id="scanNotes" placeholder="Optional movement / production note"></textarea></label>
+ </div><br><button onclick="submitScan(${m.id})">Submit Scan</button>
+ <div class="history"><h3>Recent Mold History</h3>${historyHTML(m,5)}</div>`;
+ openModal("scanModal"); renderAll();
+}
+function scanActionChanged(id){
+ const a=document.getElementById("scanAction").value;
+ document.getElementById("destinationLabel").classList.toggle("hidden",a!=="departure");
+ document.getElementById("machineLabel").classList.toggle("hidden",a!=="production");
+ if(a==="maintenance"||a==="repair"){closeModal("scanModal");openService(id,a)}
+}
+function submitScan(id){
+ const m=getMold(id), action=document.getElementById("scanAction").value, scanLoc=document.getElementById("scanLocation").value, notes=document.getElementById("scanNotes").value;
+ if(!action)return alert("Select an action.");
+ if(action==="departure"){
+   const dest=document.getElementById("scanDestination").value;
+   const from=m.location; m.location="In Transit";m.status="In Transit";m.destination=dest;
+   log(m,"Mold Departure",`${from} → ${dest}${notes?" | "+notes:""}`);
+ }else if(action==="arrival"){
+   const old=m.location;m.location=scanLoc;m.status="Available";m.destination="";
+   log(m,"Mold Arrival / Received",`${old} → ${scanLoc}${notes?" | "+notes:""}`);
+ }else if(action==="production"){
+   const machine=document.getElementById("machine").value||"Machine not entered";
+   m.location=scanLoc;m.status="Production";m.destination="";
+   log(m,"Sent to Production",`${scanLoc} | Machine: ${machine}${notes?" | "+notes:""}`);
+ }
+ m.lastScan=now();save();scanMold(id)
+}
+function receiveMold(id){
+ const m=getMold(id); if(!m.destination)return;
+ const dest=m.destination;m.location=dest;m.destination="";m.status="Available";m.lastScan=now();
+ log(m,"Mold Received",`Received at ${dest}`);
+ save();scanMold(id)
+}
+
+function openService(id,type){
+ const m=getMold(id), isRepair=type==="repair";
+ document.getElementById("recordTypeLabel").textContent=isRepair?"MOLD REPAIR":"MOLD MAINTENANCE";
+ document.getElementById("recordTitle").textContent=`${m.mold} — ${m.description}`;
+ const providers=isRepair?["FUMO / Mold Shop","Repair Person A","Repair Person B","Repair Person C","External Vendor","Other"]:["FUMO / Mold Shop","Maintenance Person A","Maintenance Person B","Maintenance Person C","External Vendor","Other"];
+ document.getElementById("recordBody").innerHTML=`
+ <div class="tabs"><button class="active">New ${isRepair?"Repair":"Maintenance"} Record</button><button onclick="openRecords(${m.id},'${type}')">View Previous Records</button></div>
+ <div class="form-grid">
+ <label>Provider / Assigned To<select id="svcProvider">${providers.map(x=>`<option>${x}</option>`).join("")}</select></label>
+ <label>Status<select id="svcStatus"><option>Open</option><option>In Progress</option><option>Waiting on Parts</option><option>Completed</option></select></label>
+ <label>Date<input id="svcDate" type="date" value="${new Date().toISOString().slice(0,10)}"></label>
+ <label>${isRepair?"Repair Type":"Maintenance Type"}<input id="svcType" placeholder="${isRepair?"e.g. Core rod repair":"e.g. PM / cleaning / inspection"}"></label>
+ <label class="full">Problem / Findings<textarea id="svcProblem" placeholder="Describe issue, inspection findings, reason for service..."></textarea></label>
+ <label class="full">Work Performed / Recommendation<textarea id="svcWork" placeholder="Work completed, parts changed, recommendations..."></textarea></label>
+ <label class="full">Attachments<input id="svcFiles" type="file" multiple><span class="small">Demo stores attachment names with the mold record. A production server/database can store the actual files.</span></label>
+ <label class="full">Additional Notes<textarea id="svcNotes"></textarea></label>
+ </div><br><button class="green" onclick="saveService(${m.id},'${type}')">Save ${isRepair?"Repair":"Maintenance"} Record</button>`;
+ openModal("recordModal");
+}
+function saveService(id,type){
+ const m=getMold(id), files=[...document.getElementById("svcFiles").files].map(f=>f.name);
+ const rec={date:document.getElementById("svcDate").value,created:now(),provider:document.getElementById("svcProvider").value,status:document.getElementById("svcStatus").value,type:document.getElementById("svcType").value,problem:document.getElementById("svcProblem").value,work:document.getElementById("svcWork").value,notes:document.getElementById("svcNotes").value,attachments:files};
+ if(type==="repair")m.repairs.unshift(rec);else m.maintenance.unshift(rec);
+ m.status=type==="repair"?"Repair":"Maintenance";
+ if(document.getElementById("svcProvider").value==="FUMO / Mold Shop")m.location="FUMO / Mold Shop";
+ log(m,type==="repair"?"Repair Record Added":"Maintenance Record Added",`${rec.provider} | ${rec.status} | ${rec.problem||rec.type||"Record added"}`);
+ save();closeModal("recordModal");
+}
+function openRecords(id,type){
+ const m=getMold(id), arr=type==="repair"?m.repairs:m.maintenance;
+ document.getElementById("recordTypeLabel").textContent=type==="repair"?"REPAIR HISTORY":"MAINTENANCE HISTORY";
+ document.getElementById("recordTitle").textContent=`${m.mold} — ${m.description}`;
+ document.getElementById("recordBody").innerHTML=`<button onclick="openService(${m.id},'${type}')">+ Add New Record</button><div class="history">
+ ${arr.length?arr.map((r,i)=>`<div class="history-item"><b>${esc(r.date)} — ${esc(r.provider)}</b> <span class="status ${r.status==="Completed"?"available":"maintenance"}">${esc(r.status)}</span><br>
+ <b>Type:</b> ${esc(r.type||"")}<br><b>Problem/Findings:</b> ${esc(r.problem||"")}<br><b>Work:</b> ${esc(r.work||"")}<br><b>Notes:</b> ${esc(r.notes||"")}<br>
+ ${(r.attachments||[]).map(a=>`<span class="attachment">📎 ${esc(a)}</span>`).join("")}</div>`).join(""):"No records yet."}</div>`;
+ openModal("recordModal");
+}
+function historyHTML(m,limit=999){
+ return m.history.length?m.history.slice(0,limit).map(h=>`<div class="history-item"><b>${esc(h.action)}</b><br>${esc(h.details)}<br><span class="small">${esc(h.date)} • ${esc(h.user)}</span></div>`).join(""):"No movement history yet.";
+}
+function openHistory(id){
+ const m=getMold(id);
+ document.getElementById("recordTypeLabel").textContent="MOLD HISTORY";
+ document.getElementById("recordTitle").textContent=`${m.mold} — ${m.description}`;
+ document.getElementById("recordBody").innerHTML=`<div class="notice">Current location: <b>${esc(m.location)}</b> | Status: <b>${esc(m.status)}</b>${m.destination?` | Destination: <b>${esc(m.destination)}</b>`:""}</div><div class="history">${historyHTML(m)}</div>`;
+ openModal("recordModal");
+}
+function openAddMold(){document.getElementById("aLoc").innerHTML=LOCATIONS.map(x=>`<option>${esc(x)}</option>`).join("");openModal("addModal")}
+function saveNewMold(){
+ const mold=document.getElementById("aMold").value.trim(),desc=document.getElementById("aDesc").value.trim();
+ if(!mold||!desc)return alert("Mold Number and Description are required.");
+ molds.push({id:Date.now(),asset:"",mold,description:desc,drawing:document.getElementById("aDrawing").value,cavities:document.getElementById("aCav").value,location:document.getElementById("aLoc").value,status:"Available",destination:"",scope:document.getElementById("aScope").value,notes:"",maintenance:[],repairs:[],history:[{date:now(),action:"Mold Added",details:"Added to database",user:"Database User"}]});
+ save();closeModal("addModal")
+}
+function exportCSV(){
+ const cols=["Mold Number","Description","Drawing No.","Cavities","Location","Status","Destination","Scope","Maintenance Records","Repair Records","Last Scan"];
+ const rows=molds.map(m=>[m.mold,m.description,m.drawing,m.cavities,m.location,m.status,m.destination,m.scope,m.maintenance.length,m.repairs.length,m.lastScan||""]);
+ const csv=[cols,...rows].map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\n");
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="mold_database.csv";a.click();URL.revokeObjectURL(a.href)
+}
+function resetDemo(){if(confirm("Reset all demo changes and restore the original mold list?")){molds=structuredClone(starter);save()}}
+function openModal(id){document.getElementById(id).classList.add("open")}
+function closeModal(id){document.getElementById(id).classList.remove("open")}
+renderAll();
+</script>
+</body>
+</html>
