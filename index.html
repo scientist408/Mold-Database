@@ -26,6 +26,10 @@ td{padding:8px;border-right:1px solid #d5dde4;border-bottom:1px solid #d5dde4;ve
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.form-grid label{font-size:12px;font-weight:bold;display:flex;flex-direction:column;gap:5px}.full{grid-column:1/-1}.form-grid textarea{min-height:80px;resize:vertical}
 .notice{padding:10px;border-radius:6px;background:#e8f1f8;margin:10px 0}.arrival{background:#fff2c8;border:1px solid #d7b04e}
 .history{margin-top:15px;border-top:1px solid #ccd6de;padding-top:10px}.history-item{padding:9px;border-left:4px solid #2d6c9f;background:#fff;margin:7px 0;border-radius:3px}.small{font-size:11px;color:#63717c}
+.email-box{grid-column:1/-1;background:#eef5fa;border:1px solid #bfd1df;border-radius:8px;padding:12px}
+.email-box h3{margin:0 0 7px;color:#173f67}.email-list{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.email-list label{font-size:12px;font-weight:normal!important;display:flex!important;flex-direction:row!important;align-items:center;gap:7px}
+.email-log{margin-top:8px;font-size:11px;color:#4e606d}
 .attachment{display:inline-block;background:#e9eef2;border-radius:4px;padding:4px 7px;margin:3px;font-size:11px}
 .tabs{display:flex;gap:7px;margin-bottom:12px}.tabs button{background:#667786}.tabs button.active{background:#174e78}
 .hidden{display:none!important}
@@ -93,6 +97,12 @@ td{padding:8px;border-right:1px solid #d5dde4;border-bottom:1px solid #d5dde4;ve
 <script>
 const LOCATIONS=["New Albany, OH, USA","Addison, IL, USA","Bartlett 2, IL, USA","Brampton, ON, Canada","Jeff City, MO, USA","FUMO / Mold Shop"];
 const STORAGE="moldDatabaseDemo_v1";
+const EMAIL_CONTACTS=[
+ {name:"New Albany Mold Coordinator",email:"abc@xyz.com"},
+ {name:"Addison Mold Coordinator",email:"moldteam@xyz.com"},
+ {name:"Maintenance / FUMO",email:"maintenance@xyz.com"},
+ {name:"Operations / Production",email:"operations@xyz.com"}
+];
 
 const starter=[
 {id:1,asset:"EBM_AX_1252",mold:"17459-N2",description:"1.8oz Round (Tresemme)",drawing:"UNI-2228-1",cavities:"12",location:"Bartlett 2, IL, USA",status:"Available",destination:"",scope:"6X70, Tri-layer",notes:"",maintenance:[],repairs:[],history:[]},
@@ -180,7 +190,7 @@ function scanMold(id){
  document.getElementById("tabletTitle").textContent=`Mold ${m.mold}`;
  let arrival="";
  if(m.status==="In Transit"){
-  arrival=`<div class="notice arrival"><b>IN TRANSIT</b><br>Expected destination: <b>${esc(m.destination)}</b><br><br><button class="green" onclick="receiveMold(${m.id})">Receive Mold at Destination</button></div>`;
+  arrival=`<div class="notice arrival"><b>IN TRANSIT</b><br>Expected destination: <b>${esc(m.destination)}</b><br><br><button class="green" onclick="document.getElementById(\'scanAction\').value=\'arrival\';scanActionChanged(${m.id})">Prepare Arrival / Receive</button></div>`;
  }
  document.getElementById("tabletBody").innerHTML=`
  ${arrival}
@@ -193,7 +203,16 @@ function scanMold(id){
  <label id="destinationLabel" class="hidden">Destination<select id="scanDestination">${LOCATIONS.filter(x=>x!=="FUMO / Mold Shop").map(x=>`<option>${esc(x)}</option>`).join("")}</select></label>
  <label id="machineLabel" class="hidden">Machine<input id="machine" placeholder="e.g. B6, EBM2"></label>
  <label class="full">Scan Notes<textarea id="scanNotes" placeholder="Optional movement / production note"></textarea></label>
- </div><br><button onclick="submitScan(${m.id})">Submit Scan</button>
+ <div class="email-box">
+   <h3>Email Notifications</h3>
+   <div class="small" style="margin-bottom:8px">Selected people will be notified when this movement is submitted.</div>
+   <div class="email-list">
+     ${EMAIL_CONTACTS.map((c,i)=>`<label><input type="checkbox" class="notifyEmail" value="${esc(c.email)}" ${i<2?"checked":""}> ${esc(c.name)} — ${esc(c.email)}</label>`).join("")}
+   </div>
+   <label style="margin-top:9px">Additional Email<input id="extraEmail" type="email" placeholder="name@xyz.com"></label>
+   <div class="email-log">Demo mode: the notification is recorded in mold history. A live version can connect this section to Outlook/Power Automate or another mail service for automatic sending.</div>
+ </div>
+ </div><br><button onclick="submitScan(${m.id})">Submit Scan & Notify</button>
  <div class="history"><h3>Recent Mold History</h3>${historyHTML(m,5)}</div>`;
  openModal("scanModal"); renderAll();
 }
@@ -205,18 +224,22 @@ function scanActionChanged(id){
 }
 function submitScan(id){
  const m=getMold(id), action=document.getElementById("scanAction").value, scanLoc=document.getElementById("scanLocation").value, notes=document.getElementById("scanNotes").value;
+ const recipients=[...document.querySelectorAll(".notifyEmail:checked")].map(x=>x.value);
+ const extra=(document.getElementById("extraEmail")?.value||"").trim();
+ if(extra)recipients.push(extra);
+ const emailText=recipients.length?` | Email notification: ${recipients.join(", ")}`:" | No email recipients selected";
  if(!action)return alert("Select an action.");
  if(action==="departure"){
    const dest=document.getElementById("scanDestination").value;
    const from=m.location; m.location="In Transit";m.status="In Transit";m.destination=dest;
-   log(m,"Mold Departure",`${from} → ${dest}${notes?" | "+notes:""}`);
+   log(m,"Mold Departure",`${from} → ${dest}${notes?" | "+notes:""}${emailText}`);
  }else if(action==="arrival"){
    const old=m.location;m.location=scanLoc;m.status="Available";m.destination="";
-   log(m,"Mold Arrival / Received",`${old} → ${scanLoc}${notes?" | "+notes:""}`);
+   log(m,"Mold Arrival / Received",`${old} → ${scanLoc}${notes?" | "+notes:""}${emailText}`);
  }else if(action==="production"){
    const machine=document.getElementById("machine").value||"Machine not entered";
    m.location=scanLoc;m.status="Production";m.destination="";
-   log(m,"Sent to Production",`${scanLoc} | Machine: ${machine}${notes?" | "+notes:""}`);
+   log(m,"Sent to Production",`${scanLoc} | Machine: ${machine}${notes?" | "+notes:""}${emailText}`);
  }
  m.lastScan=now();save();scanMold(id)
 }
